@@ -20,7 +20,7 @@ func TestDelayParsing(t *testing.T) {
 }
 
 func TestDelayParsingErr(t *testing.T) {
-	debug = true
+	Debug = true
 	tmplSrc := `{{define "test"}}test{end}}`
 	tmpl,err := New("test").Parse(tmplSrc)
 	if err != nil {
@@ -34,7 +34,7 @@ func TestDelayParsingErr(t *testing.T) {
 }
 
 func TestParsingErr(t *testing.T) {
-	debug = false
+	Debug = false
 	tmplSrc := `{{define "test"}}test{end}}`
 	_,err := New("test").Parse(tmplSrc)
 	if err == nil {

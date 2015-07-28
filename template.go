@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	debug = false
+	Debug = false
 )
 
 type Template interface {
@@ -126,14 +126,14 @@ func Must(t Template, err error) Template {
 }
 
 func New(name string) Template {
-	if debug {
+	if Debug {
 		return &reloadTemplate{t: htmlTmpl.New(name)}
 	}
 	return &instantTemplate{htmlTmpl.New(name)}
 }
 
 func ParseFiles(filenames ...string) (Template, error) {
-	if debug {
+	if Debug {
 		return (&reloadTemplate{}).ParseFiles(filenames...)
 	}
 	t,err := htmlTmpl.ParseFiles(filenames...)
@@ -141,7 +141,7 @@ func ParseFiles(filenames ...string) (Template, error) {
 }
 
 func ParseGlob(pattern string) (Template, error) {
-	if debug {
+	if Debug {
 		return (&reloadTemplate{}).ParseGlob(pattern)
 	}
 	t,err := htmlTmpl.ParseGlob(pattern)
