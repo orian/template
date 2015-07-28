@@ -14,6 +14,7 @@ var (
 type Template interface {
 	Name() string
 	Execute(io.Writer, interface{}) error
+	Funcs(funcMap htmlTmpl.FuncMap) Template
 	Parse(string) (Template, error)
 	ParseFiles(filenames ...string) (Template, error)
 	ParseGlob(pattern string) (Template, error)
@@ -53,30 +54,26 @@ func (o *opParseGlob) Run(t *htmlTmpl.Template) (*htmlTmpl.Template, error) {
 	return t.ParseGlob(o.pattern)
 }
 
+type opFuncs struct {
+	funcs htmlTmpl.FuncMap
+}
+
+func copyFuncMap(f htmlTmpl.FuncMap) htmlTmpl.FuncMap {
+	fm := htmlTmpl.FuncMap{}
+	for k,v := range f {
+		fm[k] = v
+	}
+	return fm
+}
+
+func (o *opFuncs) Run(t *htmlTmpl.Template) (*htmlTmpl.Template, error) {
+	return t.Funcs(o.funcs), nil
+}
+
 // delays parsing until execution
 type reloadTemplate struct {
 	t *htmlTmpl.Template
 	ops []op
-}
-
-func (r *reloadTemplate) Name() string{
-	// if not created with new, than reload
-	return r.t.Name()
-}
-
-func (t *reloadTemplate) Parse(src string) (Template, error) {
-	t.ops = append(t.ops, &opParse{src})
-	return t, nil
-}
-
-func (t *reloadTemplate) ParseFiles(filenames ...string) (Template, error) {
-	t.ops = append(t.ops, &opParseFiles{filenames})
-	return t, nil
-}
-
-func (t *reloadTemplate) ParseGlob(pattern string) (Template, error) {
-	t.ops = append(t.ops, &opParseGlob{pattern})
-	return t, nil
 }
 
 func (t *reloadTemplate) Execute(wr io.Writer, data interface{}) error{
@@ -91,8 +88,44 @@ func (t *reloadTemplate) Execute(wr io.Writer, data interface{}) error{
 	return tmpl.Execute(wr, data)
 }
 
+func(r *reloadTemplate) Funcs(funcMap htmlTmpl.FuncMap) Template {
+	r.ops = append(r.ops, &opFuncs{copyFuncMap(funcMap)})
+	return r
+}
+
+func (r *reloadTemplate) Name() string{
+	// if not created with new, than reload
+	return r.t.Name()
+}
+
+func (t *reloadTemplate) Parse(src string) (Template, error) {
+	t.ops = append(t.ops, &opParse{src})
+	return t, nil
+}
+
+func (t *reloadTemplate) ParseFiles(filenames ...string) (Template, error) {
+	c := make([]string, len(filenames))
+	t.ops = append(t.ops, &opParseFiles{c})
+	return t, nil
+}
+
+func (t *reloadTemplate) ParseGlob(pattern string) (Template, error) {
+	t.ops = append(t.ops, &opParseGlob{pattern})
+	return t, nil
+}
+
+
 type instantTemplate struct {
 	*htmlTmpl.Template
+}
+
+func (r *instantTemplate) Execute(wr io.Writer, data interface{}) error{
+	return r.Template.Execute(wr, data)
+}
+
+func(r *instantTemplate) Funcs(funcMap htmlTmpl.FuncMap) Template {
+	// TODO creating new instantTemplate is a problem
+	return &instantTemplate{r.Template.Funcs(funcMap)}
 }
 
 func (r *instantTemplate) Name() string {
@@ -112,10 +145,6 @@ func (r *instantTemplate) ParseFiles(filenames ...string) (Template, error) {
 func (r *instantTemplate) ParseGlob(pattern string) (Template, error) {
 	t,err := r.Template.Parse(pattern)
 	return &instantTemplate{t},err
-}
-
-func (r *instantTemplate) Execute(wr io.Writer, data interface{}) error{
-	return r.Template.Execute(wr, data)
 }
 
 func Must(t Template, err error) Template {
